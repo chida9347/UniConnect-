@@ -1,0 +1,27 @@
+# Dependencies and build output
+frontend/node_modules/
+frontend/dist/
+backend/target/
+backend/data/
+backend/uploads/
+*.mv.db
+*.trace.db
+*.lock.db
+
+# Environment files (never commit secrets)
+.env
+.env.local
+.env.*.local
+backend/.env
+frontend/.env.local
+
+# IDE and OS files
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/

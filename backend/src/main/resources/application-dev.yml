@@ -1,0 +1,24 @@
+# Local development uses an H2 file database so the app can be run without MySQL.
+# Production uses MySQL via application.yml.
+spring:
+  config:
+    import: optional:file:.env[.properties]
+  datasource:
+    url: jdbc:h2:file:./data/uniconnect;MODE=MySQL;DATABASE_TO_LOWER=TRUE;AUTO_SERVER=TRUE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: update
+  flyway:
+    enabled: false
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+
+app:
+  storage:
+    type: local
+    local-path: ./uploads
