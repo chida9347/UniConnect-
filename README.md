@@ -423,7 +423,7 @@ The public instance runs entirely on free plans:
 
 | Component | Platform | Notes |
 | --- | --- | --- |
-| Frontend | Vercel (free) | https://uniconnect-beta-ebon.vercel.app — project root `frontend`, Vite preset, SPA rewrite |
+| Frontend | Vercel (free) | https://kare-uniconnect.vercel.app — project root `frontend`, Vite preset, SPA rewrite |
 | Backend | Render (free, Docker) | https://uniconnect-platform-api.onrender.com — root `backend`, health check `/actuator/health` |
 | Database | TiDB Cloud Starter (free) | MySQL 8.0-compatible, TLS on port `4000`, schema created by Flyway on first boot |
 

@@ -193,7 +193,7 @@ dist/assets/index-*.js         345.33 kB (gzip 103.95 kB)
 
 | Component | Platform | URL / configuration |
 | --- | --- | --- |
-| Frontend | Vercel (free) | https://uniconnect-beta-ebon.vercel.app — root `frontend`, Vite preset, SPA rewrite |
+| Frontend | Vercel (free) | https://kare-uniconnect.vercel.app — root `frontend`, Vite preset, SPA rewrite |
 | Backend | Render (free, Docker) | https://uniconnect-platform-api.onrender.com — root `backend`, health check `/actuator/health` |
 | Database | TiDB Cloud Starter (free) | MySQL 8.0-compatible, TLS port `4000`, schema applied by Flyway on boot |
 
