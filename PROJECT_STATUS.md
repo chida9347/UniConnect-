@@ -22,8 +22,8 @@ All core modules are implemented against real APIs with persistent storage. No m
 | Frontend production build | ✅ Passing |
 | Documentation | ✅ README + this status file |
 | Docker/Compose configuration | ✅ Written; not build-tested locally (Docker unavailable) |
-| MySQL runtime verification | ⚠️ Not executed locally (no MySQL CLI/server); Flyway schema provided |
-| Cloud deployment | ⚠️ Not executed (no credentials/infrastructure); configuration and instructions prepared |
+| MySQL runtime verification | ✅ Verified against the live TiDB Cloud cluster (Flyway + JPA `validate`) |
+| Cloud deployment | ✅ Live: Vercel frontend + Render backend + TiDB Cloud Starter (free tier) |
 
 ---
 
@@ -189,7 +189,24 @@ dist/assets/index-*.js         345.33 kB (gzip 103.95 kB)
 
 ## 6. Deployment readiness
 
-Prepared artifacts:
+### Live public deployment (free tier)
+
+| Component | Platform | URL / configuration |
+| --- | --- | --- |
+| Frontend | Vercel (free) | https://uniconnect-beta-ebon.vercel.app — root `frontend`, Vite preset, SPA rewrite |
+| Backend | Render (free, Docker) | https://uniconnect-platform-api.onrender.com — root `backend`, health check `/actuator/health` |
+| Database | TiDB Cloud Starter (free) | MySQL 8.0-compatible, TLS port `4000`, schema applied by Flyway on boot |
+
+Deployment results:
+
+- Docker image built and started on Render; `/actuator/health` returns `UP`.
+- Flyway applied `V1__create_schema.sql` on TiDB; Hibernate `ddl-auto: validate` accepted the schema.
+- Admin account bootstrapped from `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+- CORS preflight and login succeed from the Vercel origin; other origins get `403`.
+- Live API smoke test: `62 passed, 0 failed`.
+- Browser check: login, dashboard, and admin user directory render real data with no console errors.
+
+Artifacts used:
 
 - `backend/Dockerfile` — multi-stage Maven/JRE image, non-root runtime.
 - `frontend/Dockerfile` — Node build + Nginx runtime.
@@ -199,25 +216,17 @@ Prepared artifacts:
 - `.env.example` files for backend, frontend, and Compose.
 - `README.md` — setup, API, security, deployment, and troubleshooting.
 
-**Deployment is ready for:**
-- Docker Compose on a single host.
-- Vercel frontend + Render/Railway backend + managed MySQL.
-- Local S3-compatible storage or persistent disk for uploads.
-
-**Not executed in this environment:**
-- Docker image build/run — Docker is not installed.
-- MySQL migration/runtime — no local MySQL server or client is available.
-- Actual cloud deployment — no credentials or hosting infrastructure were provided.
-
-These are environment limitations, not missing application code. Production configuration, migrations, and instructions are included.
+**Free-tier caveats:** the backend sleeps after 15 minutes idle (~60 s cold start), the Render
+filesystem is ephemeral (uploads disappear on restart unless `STORAGE_TYPE=s3` is configured),
+and the instance has 512 MB RAM / 0.1 CPU.
 
 ---
 
 ## 7. Known limitations
 
-1. **No live MySQL run.** The production JDBC configuration and Flyway migration are written and aligned with the entities, but were not executed against a real MySQL instance locally. The H2 `dev`/`test` profiles were used for runtime and automated verification.
-2. **No Docker build performed.** Compose and Dockerfiles are provided but could not be validated with a Docker engine in this environment.
-3. **No cloud deployment performed.** No hosting credentials were available.
+1. **Free-tier cold starts.** The Render backend spins down after 15 minutes without traffic.
+2. **Ephemeral uploads on the free plan.** Uploaded notes live on the container filesystem and are lost on redeploy/restart. Set `STORAGE_TYPE=s3` plus `S3_*` variables (any S3-compatible provider) to persist them.
+3. **Email verification and password reset are not implemented.** Registration validates the university domain but does not send a verification email. This was outside the requested core scope.
 4. **Email verification and password reset are not implemented.** Registration validates the university domain but does not send a verification email. This was outside the requested core scope.
 5. **Admin password rotation is manual.** The bootstrap only creates an absent admin account; it does not overwrite an existing password.
 6. **Sample faculty/opportunity SQL is optional.** It is not auto-loaded in production.
@@ -226,20 +235,12 @@ These are environment limitations, not missing application code. Production conf
 
 ## 8. Recommended next steps
 
-Before a public launch:
-
-1. Provision MySQL 8 and run the backend once to apply `V1__create_schema.sql`.
-2. Build and run the Compose stack in a Docker-capable environment, or deploy backend/frontend to Render/Railway + Vercel.
-3. Configure a persistent disk or S3 for note uploads.
-4. Set strong production secrets and lock CORS to the deployed frontend origin.
-5. Run `scripts/smoke-test.ps1` against the deployed API.
-6. Optionally add email verification, password reset, and refresh-token rotation.
-7. Add automated frontend component/E2E tests if ongoing UI changes are expected.
+1. Configure S3-compatible storage (`STORAGE_TYPE=s3`, `S3_*`) so uploaded notes survive restarts on the free plan.
+2. Optionally add email verification, password reset, and refresh-token rotation.
+3. Add automated frontend component/E2E tests if ongoing UI changes are expected.
 
 ---
 
 ## 9. Final assessment
 
-The UniConnect platform is **functionally complete** for the requested scope. Core backend and frontend flows are implemented, automated and manual verification passed, the production build succeeds, and deployment/documentation artifacts are in place.
-
-The only outstanding items are environment-dependent validations (MySQL runtime, Docker build, cloud deployment) that cannot be performed in the current machine without the corresponding services and credentials.
+The UniConnect platform is **functionally complete** for the requested scope and is **live in production** on free hosting. Core backend and frontend flows are implemented, automated and manual verification passed locally and against the deployed stack, and the production build succeeds.

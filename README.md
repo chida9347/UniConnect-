@@ -417,6 +417,27 @@ Current result: successful production build (1,681 modules; approximately 63 kB 
 
 ## Production deployment
 
+### Live deployment (free tier)
+
+The public instance runs entirely on free plans:
+
+| Component | Platform | Notes |
+| --- | --- | --- |
+| Frontend | Vercel (free) | https://uniconnect-beta-ebon.vercel.app — project root `frontend`, Vite preset, SPA rewrite |
+| Backend | Render (free, Docker) | https://uniconnect-platform-api.onrender.com — root `backend`, health check `/actuator/health` |
+| Database | TiDB Cloud Starter (free) | MySQL 8.0-compatible, TLS on port `4000`, schema created by Flyway on first boot |
+
+Verified against the live stack: Flyway migration, admin bootstrap and login, dashboard,
+admin user directory, CORS preflight with the Vercel origin, and the full API smoke test
+(`62 passed, 0 failed`).
+
+Free-tier limits to expect:
+
+- The backend spins down after 15 minutes without traffic; the next request takes ~60 s to wake it.
+- The Render filesystem is ephemeral, so uploaded study notes are lost on redeploy or restart.
+  Set `STORAGE_TYPE=s3` and the `S3_*` variables to keep uploads (any S3-compatible store).
+- Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`.
+
 ### Option A — Docker Compose (single host)
 
 ```powershell
