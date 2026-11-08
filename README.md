@@ -437,6 +437,9 @@ Free-tier limits to expect:
 - The Render filesystem is ephemeral, so uploaded study notes are lost on redeploy or restart.
   Set `STORAGE_TYPE=s3` and the `S3_*` variables to keep uploads (any S3-compatible store).
 - Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`.
+- Frontend pushes to `main` deploy automatically through the Vercel Git integration. The Render
+  service was created from the public repo without a GitHub webhook, so redeploy the backend with
+  `render deploys create srv-dbo11bu417fc73f06pe0` (or *Manual Deploy* in the Render dashboard).
 
 ### Option A — Docker Compose (single host)
 
