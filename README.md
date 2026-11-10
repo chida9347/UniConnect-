@@ -112,10 +112,12 @@ uniconnect/
 | Maven | 3.9+ |
 | Node.js | 20+ (22 recommended) |
 | npm | 10+ |
-| MySQL | 8.0+ (production only) |
+| MySQL | 8.0+ (production; optional but supported locally) |
 | Docker | Optional, for the Compose stack |
 
-Local development does **not** require MySQL. It uses an H2 file database under `backend/data/`.
+Local development does **not** require MySQL — the `dev` profile uses an H2 file database
+under `backend/data/`. You can also run locally against your own MySQL 8 server; see
+[Local development with your own MySQL](#local-development-with-your-own-mysql).
 
 ---
 
@@ -147,6 +149,41 @@ The dev profile loads `backend/.env` automatically when present. You can also su
 - H2 console (dev only): `http://localhost:8080/h2-console`
   - JDBC URL: `jdbc:h2:file:./data/uniconnect`
   - User: `sa`, password: empty
+
+### 1b. Backend (local, your own MySQL)
+
+If you already run MySQL 8 on your machine, the project can use it directly — same driver
+(`mysql-connector-j`), same Flyway migration, same schema as production.
+
+```powershell
+# 1. Create the database and an application user
+C:\"Program Files"\MySQL\"MySQL Server 8.0"\bin\mysql.exe -u root -p `
+  -e "CREATE DATABASE IF NOT EXISTS uniconnect CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+C:\"Program Files"\MySQL\"MySQL Server 8.0"\bin\mysql.exe -u root -p `
+  -e "CREATE USER IF NOT EXISTS 'uniconnect'@'localhost' IDENTIFIED BY 'YourStrongPass1!'; GRANT ALL PRIVILEGES ON uniconnect.* TO 'uniconnect'@'localhost'; FLUSH PRIVILEGES;"
+
+# 2. Point the backend at it, then start WITHOUT the dev profile
+cd uniconnect/backend
+$env:DB_HOST="localhost"
+$env:DB_PORT="3306"
+$env:DB_NAME="uniconnect"
+$env:DB_USERNAME="uniconnect"
+$env:DB_PASSWORD="YourStrongPass1!"
+$env:DB_USE_SSL="false"
+$env:JWT_SECRET="<base64-encoded-secret>"
+$env:ADMIN_EMAIL="admin@klu.ac.in"
+$env:ADMIN_PASSWORD="ChooseAStrong@Password123"
+mvn spring-boot:run
+```
+
+Flyway applies `V1__create_schema.sql` on first start and Hibernate `validate` confirms the
+schema matches the entities. Do **not** pass `-Dspring-boot.run.profiles=dev` in this case:
+the `dev` profile overrides the datasource with H2 and disables Flyway.
+
+The same variables work for the deployed backend, but a public server cannot reach a MySQL
+instance running on your laptop. Keep a cloud MySQL (the live deployment uses TiDB Cloud
+Starter, which speaks the MySQL 8 protocol) for the public site, and use your local server
+for development.
 
 ### 2. Create an administrator
 
