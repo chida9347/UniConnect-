@@ -708,6 +708,38 @@ button {
   color: #b91c1c;
 }
 
+.alert-info {
+  background: var(--primary-soft);
+  border-color: var(--primary-line);
+  color: var(--ink);
+}
+
+.auth-session-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.btn-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  text-decoration: underline;
+}
+
 .password-strength {
   display: grid;
   gap: 7px;

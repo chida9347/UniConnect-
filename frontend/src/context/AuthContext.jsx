@@ -4,8 +4,27 @@ import { authService } from '../services/authService';
 
 const AuthContext = createContext(null);
 
+// A stale token must not trigger a slow /auth/me call against a sleeping backend.
+// Expiry is only a local convenience check; the server still validates every token.
+function isTokenExpired(token) {
+  try {
+    const payload = token.split('.')[1];
+    const claims = JSON.parse(atob(payload.replace(/-/g, '+').replace(/_/g, '/')));
+    return typeof claims.exp === 'number' && claims.exp * 1000 <= Date.now();
+  } catch {
+    return false;
+  }
+}
+
 export function AuthProvider({ children }) {
-  const [token, setToken] = useState(() => localStorage.getItem(TOKEN_KEY));
+  const [token, setToken] = useState(() => {
+    const stored = localStorage.getItem(TOKEN_KEY);
+    if (stored && isTokenExpired(stored)) {
+      localStorage.removeItem(TOKEN_KEY);
+      return null;
+    }
+    return stored;
+  });
   const [user, setUser] = useState(null);
   const [initializing, setInitializing] = useState(true);
 

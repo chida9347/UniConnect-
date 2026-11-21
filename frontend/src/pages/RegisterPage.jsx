@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Building2,
   Eye,
@@ -7,6 +7,7 @@ import {
   GraduationCap,
   Hash,
   LockKeyhole,
+  LogOut,
   Mail,
   UserRound,
 } from 'lucide-react';
@@ -28,7 +29,7 @@ const INITIAL = {
 };
 
 export default function RegisterPage() {
-  const { register, user, initializing } = useAuth();
+  const { register, logout, user, initializing } = useAuth();
   const navigate = useNavigate();
   const [form, setForm] = useState(INITIAL);
   const [errors, setErrors] = useState({});
@@ -45,10 +46,6 @@ export default function RegisterPage() {
       /[^A-Za-z0-9]/.test(password),
     ].filter(Boolean).length;
   }, [form.password]);
-
-  if (!initializing && user) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   const update = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -125,6 +122,16 @@ export default function RegisterPage() {
         </p>
       }
     >
+      {!initializing && user && (
+        <div className="alert alert-info auth-session-banner">
+          <span>
+            You are signed in as <strong>{user.email}</strong>. Register below to create another account.
+          </span>
+          <button type="button" className="btn-link" onClick={logout}>
+            <LogOut size={14} aria-hidden="true" /> Sign out
+          </button>
+        </div>
+      )}
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         {serverError && (
           <div className="alert alert-error" role="alert">

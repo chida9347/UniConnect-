@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, LogOut, LockKeyhole, Mail } from 'lucide-react';
 import AuthShell from '../components/AuthShell';
 import Button from '../components/Button';
 import { FormField, Input } from '../components/FormControls';
@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { getErrorMessage, getFieldErrors } from '../utils/apiError';
 
 export default function LoginPage() {
-  const { login, user, initializing } = useAuth();
+  const { login, logout, user, initializing } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [form, setForm] = useState({ email: '', password: '' });
@@ -16,10 +16,6 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-
-  if (!initializing && user) {
-    return <Navigate to="/dashboard" replace />;
-  }
 
   const update = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -64,6 +60,16 @@ export default function LoginPage() {
         </p>
       }
     >
+      {!initializing && user && (
+        <div className="alert alert-info auth-session-banner">
+          <span>
+            You are signed in as <strong>{user.email}</strong>. Sign in below to switch accounts.
+          </span>
+          <button type="button" className="btn-link" onClick={logout}>
+            <LogOut size={14} aria-hidden="true" /> Sign out
+          </button>
+        </div>
+      )}
       <form className="auth-form" onSubmit={handleSubmit} noValidate>
         {serverError && (
           <div className="alert alert-error" role="alert">
