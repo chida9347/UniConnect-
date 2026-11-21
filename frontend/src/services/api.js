@@ -4,8 +4,8 @@ export const TOKEN_KEY = 'uniconnect_token';
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  // 90s so the first request can wake a sleeping free-tier backend (cold start).
-  timeout: 90000,
+  // A sleeping free-tier backend has taken up to 171s to boot (measured in Render logs).
+  timeout: 240000,
   headers: {
     Accept: 'application/json',
   },

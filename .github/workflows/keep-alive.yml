@@ -1,0 +1,29 @@
+name: Keep Render backend warm
+
+# Render's free plan suspends a web service after 15 minutes of inactivity.
+# A Spring Boot cold start on 0.1 CPU can take nearly 3 minutes, which makes
+# the first sign-in appear to time out. Ping the health endpoint every 10
+# minutes so the instance stays awake. No secrets are needed.
+
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping health endpoint
+        run: |
+          for attempt in 1 2 3 4; do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --max-time 240 https://uniconnect-platform-api.onrender.com/actuator/health || true)
+            echo "Attempt $attempt: HTTP $code"
+            if [ "$code" = "200" ]; then
+              exit 0
+            fi
+            sleep 15
+          done
+          echo "Backend did not become healthy"
+          exit 1

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Eye, EyeOff, LogOut, LockKeyhole, Mail } from 'lucide-react';
 import AuthShell from '../components/AuthShell';
@@ -16,6 +16,16 @@ export default function LoginPage() {
   const [serverError, setServerError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [waking, setWaking] = useState(false);
+
+  useEffect(() => {
+    if (!loading) {
+      setWaking(false);
+      return undefined;
+    }
+    const timer = window.setTimeout(() => setWaking(true), 6000);
+    return () => window.clearTimeout(timer);
+  }, [loading]);
 
   const update = (field) => (event) => {
     setForm((current) => ({ ...current, [field]: event.target.value }));
@@ -121,6 +131,13 @@ export default function LoginPage() {
         <Button type="submit" loading={loading} className="btn-block" size="lg">
           Sign in
         </Button>
+        {loading && (
+          <p className="auth-hint" role="status">
+            {waking
+              ? 'The free backend is waking up — this can take a few minutes. Please keep this tab open.'
+              : 'Signing in…'}
+          </p>
+        )}
       </form>
     </AuthShell>
   );

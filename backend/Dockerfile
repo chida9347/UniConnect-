@@ -21,4 +21,5 @@ USER app
 EXPOSE 8080
 ENV PORT=8080
 
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# C1-only JIT and the serial GC keep startup usable on Render's 0.1 CPU / 512 MB plan.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:TieredStopAtLevel=1", "-XX:+UseSerialGC", "-Djava.awt.headless=true", "-jar", "/app/app.jar"]
