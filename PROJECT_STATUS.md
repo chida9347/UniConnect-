@@ -213,23 +213,25 @@ Artifacts used:
 - `frontend/nginx.conf` — SPA fallback, `/api` proxy, gzip, upload size.
 - `docker-compose.yml` — MySQL 8.4, backend, frontend, health checks, persistent volumes.
 - `frontend/vercel.json` — SPA rewrites.
+- `.github/workflows/keep-alive.yml` — pings Render health every 10 min to avoid cold starts.
 - `.env.example` files for backend, frontend, and Compose.
 - `README.md` — setup, API, security, deployment, and troubleshooting.
 
-**Free-tier caveats:** the backend sleeps after 15 minutes idle (~60 s cold start), the Render
-filesystem is ephemeral (uploads disappear on restart unless `STORAGE_TYPE=s3` is configured),
-and the instance has 512 MB RAM / 0.1 CPU.
+**Free-tier caveats:** Render sleeps after 15 minutes idle. A measured cold boot was 171 s;
+C1-only JIT and the serial GC reduced it to 89 s, a 10-minute GitHub Actions ping keeps the
+instance warm, and the frontend allows 240 s with a wake-up hint. The Render filesystem is
+ephemeral (uploads disappear on restart unless `STORAGE_TYPE=s3` is configured), and the
+instance has 512 MB RAM / 0.1 CPU.
 
 ---
 
 ## 7. Known limitations
 
-1. **Free-tier cold starts.** The Render backend spins down after 15 minutes without traffic.
+1. **Free-tier cold starts.** Render spins down after 15 minutes idle. The keep-alive workflow minimizes this, but a first sign-in after a redeploy can still take ~90 s; the UI shows a wake-up hint and allows 240 s.
 2. **Ephemeral uploads on the free plan.** Uploaded notes live on the container filesystem and are lost on redeploy/restart. Set `STORAGE_TYPE=s3` plus `S3_*` variables (any S3-compatible provider) to persist them.
 3. **Email verification and password reset are not implemented.** Registration validates the university domain but does not send a verification email. This was outside the requested core scope.
-4. **Email verification and password reset are not implemented.** Registration validates the university domain but does not send a verification email. This was outside the requested core scope.
-5. **Admin password rotation is manual.** The bootstrap only creates an absent admin account; it does not overwrite an existing password.
-6. **Sample faculty/opportunity SQL is optional.** It is not auto-loaded in production.
+4. **Admin password rotation is manual.** The bootstrap only creates an absent admin account; it does not overwrite an existing password.
+5. **Sample faculty/opportunity SQL is optional.** It is not auto-loaded in production.
 
 ---
 

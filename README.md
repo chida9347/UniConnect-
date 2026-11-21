@@ -470,10 +470,15 @@ admin user directory, CORS preflight with the Vercel origin, and the full API sm
 
 Free-tier limits to expect:
 
-- The backend spins down after 15 minutes without traffic; the next request takes ~60 s to wake it.
+- Render suspends the backend after 15 minutes idle. A cold Spring Boot start was measured at
+  **171 s**, so `.github/workflows/keep-alive.yml` pings `/actuator/health` every 10 minutes via
+  GitHub Actions (free, no secrets) to keep the instance warm. C1-only JIT and the serial GC in
+  `backend/Dockerfile` reduced a measured cold boot to **89 s**, and the frontend allows 240 s
+  with a visible "backend is waking up" hint. If the first sign-in is slow, keep the tab open.
 - The Render filesystem is ephemeral, so uploaded study notes are lost on redeploy or restart.
   Set `STORAGE_TYPE=s3` and the `S3_*` variables to keep uploads (any S3-compatible store).
-- Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`.
+- Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`,
+  `-XX:TieredStopAtLevel=1` and `-XX:+UseSerialGC`.
 - Frontend pushes to `main` deploy automatically through the Vercel Git integration. The Render
   service was created from the public repo without a GitHub webhook, so redeploy the backend with
   `render deploys create srv-dbo11bu417fc73f06pe0` (or *Manual Deploy* in the Render dashboard).
