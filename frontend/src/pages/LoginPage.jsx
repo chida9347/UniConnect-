@@ -18,6 +18,16 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [waking, setWaking] = useState(false);
 
+  // Start waking a sleeping free-tier backend as soon as the page opens, so the
+  // boot happens while the visitor is typing rather than after they press Sign in.
+  useEffect(() => {
+    const base = (import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '');
+    const healthUrl = base.endsWith('/api')
+      ? `${base.slice(0, -4)}/actuator/health`
+      : `${base}/actuator/health`;
+    fetch(healthUrl, { keepalive: true }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (!loading) {
       setWaking(false);
