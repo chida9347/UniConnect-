@@ -4,9 +4,11 @@ import com.uniconnect.dto.NoteResponse;
 import com.uniconnect.dto.NoteUploadRequest;
 import com.uniconnect.dto.PageResponse;
 import com.uniconnect.entity.Note;
+import com.uniconnect.entity.NoteFolder;
 import com.uniconnect.entity.User;
 import com.uniconnect.exception.BadRequestException;
 import com.uniconnect.exception.NotFoundException;
+import com.uniconnect.repository.NoteFolderRepository;
 import com.uniconnect.repository.NoteRepository;
 import com.uniconnect.storage.StorageService;
 import org.springframework.core.io.Resource;
@@ -48,27 +50,23 @@ public class NoteService {
     );
 
     private final NoteRepository noteRepository;
+    private final NoteFolderRepository noteFolderRepository;
     private final StorageService storageService;
     private final CurrentUserService currentUserService;
 
-    public NoteService(NoteRepository noteRepository, StorageService storageService,
-                       CurrentUserService currentUserService) {
+    public NoteService(NoteRepository noteRepository, NoteFolderRepository noteFolderRepository,
+                       StorageService storageService, CurrentUserService currentUserService) {
         this.noteRepository = noteRepository;
+        this.noteFolderRepository = noteFolderRepository;
         this.storageService = storageService;
         this.currentUserService = currentUserService;
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<NoteResponse> list(String search, int page, int size) {
+    public PageResponse<NoteResponse> list(String search, Long folderId, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(Math.max(size, 1), 50),
                 Sort.by(Sort.Direction.DESC, "createdAt"));
-        Page<Note> notes;
-        if (StringUtils.hasText(search)) {
-            String term = search.trim();
-            notes = noteRepository.findByTitleContainingIgnoreCaseOrSubjectContainingIgnoreCase(term, term, pageable);
-        } else {
-            notes = noteRepository.findAll(pageable);
-        }
+        Page<Note> notes = noteRepository.search(folderId, StringUtils.hasText(search) ? search.trim() : "", pageable);
         return PageResponse.from(notes, Mappers::toNote);
     }
 
@@ -83,19 +81,26 @@ public class NoteService {
                 + "/" + UUID.randomUUID() + "." + extension;
         String contentType = CONTENT_TYPES.get(extension);
 
+        NoteFolder folder = resolveFolder(request.getFolderId());
+        String subject = folder != null ? folder.getName() : request.getSubject();
+        if (!StringUtils.hasText(subject)) {
+            throw new BadRequestException("Choose a folder or enter a subject");
+        }
+
         User uploader = currentUserService.requireCurrentUser();
         storageService.store(file, storageKey);
 
         try {
             Note note = new Note();
             note.setTitle(request.getTitle().trim());
-            note.setSubject(request.getSubject().trim());
+            note.setSubject(subject.trim());
             note.setDescription(StringUtils.hasText(request.getDescription()) ? request.getDescription().trim() : null);
             note.setOriginalFilename(originalFilename);
             note.setStorageKey(storageKey);
             note.setContentType(contentType);
             note.setFileSize(file.getSize());
             note.setUploader(uploader);
+            note.setFolder(folder);
             return Mappers.toNote(noteRepository.save(note));
         } catch (RuntimeException exception) {
             storageService.delete(storageKey);
@@ -115,6 +120,14 @@ public class NoteService {
         currentUserService.requireOwnerOrAdmin(note.getUploader());
         storageService.delete(note.getStorageKey());
         noteRepository.delete(note);
+    }
+
+    private NoteFolder resolveFolder(Long folderId) {
+        if (folderId == null) {
+            return null;
+        }
+        return noteFolderRepository.findById(folderId)
+                .orElseThrow(() -> new NotFoundException("Study folder not found"));
     }
 
     private Note findNote(Long id) {

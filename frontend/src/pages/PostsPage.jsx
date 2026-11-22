@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
   Clock3,
+  ImagePlus,
   MessagesSquare,
   Pencil,
   Plus,
   Search,
   Trash2,
+  X,
 } from 'lucide-react';
 import PageHeader from '../components/PageHeader';
 import Button from '../components/Button';
@@ -19,12 +21,15 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import Pagination from '../components/Pagination';
 import { FormField, Input, Select, Textarea } from '../components/FormControls';
 import { ErrorState, LoadingState } from '../components/Loading';
+import PostImage from '../components/PostImage';
 import { useDebounce } from '../hooks/useDebounce';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { postService } from '../services/postService';
+import { POST_IMAGE_ACCEPT } from '../utils/constants';
 import { excerpt, timeAgo } from '../utils/format';
 import { getErrorMessage, getFieldErrors } from '../utils/apiError';
+import { validatePostImages } from '../utils/upload';
 
 const EMPTY_FORM = { title: '', content: '' };
 
@@ -48,6 +53,13 @@ export default function PostsPage() {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleting, setDeleting] = useState(false);
+  const [newImages, setNewImages] = useState([]);
+  const [removedImageIds, setRemovedImageIds] = useState([]);
+  const [imageError, setImageError] = useState('');
+  const [lightbox, setLightbox] = useState(null);
+  const previewUrls = useMemo(() => newImages.map((file) => URL.createObjectURL(file)), [newImages]);
+
+  useEffect(() => () => previewUrls.forEach((url) => URL.revokeObjectURL(url)), [previewUrls]);
 
   useEffect(() => {
     setPage(0);
@@ -79,10 +91,18 @@ export default function PostsPage() {
     };
   }, [search, page, sort, refreshKey]);
 
+  const resetImages = () => {
+    setNewImages([]);
+    setRemovedImageIds([]);
+    setImageError('');
+    setLightbox(null);
+  };
+
   const openCreate = () => {
     setEditing(null);
     setForm(EMPTY_FORM);
     setFormErrors({});
+    resetImages();
     setModalOpen(true);
   };
 
@@ -90,7 +110,29 @@ export default function PostsPage() {
     setEditing(post);
     setForm({ title: post.title, content: post.content });
     setFormErrors({});
+    resetImages();
     setModalOpen(true);
+  };
+
+  const handleImagesChange = (event) => {
+    const picked = Array.from(event.target.files || []);
+    const combined = [...newImages, ...picked];
+    const existingCount = editing?.images?.filter((image) => !removedImageIds.includes(image.id)).length || 0;
+    const error = validatePostImages(combined, existingCount);
+    event.target.value = '';
+    if (error) {
+      setImageError(error);
+      addToast(error, 'error');
+      return;
+    }
+    setNewImages(combined);
+    setImageError('');
+  };
+
+  const toggleExistingImage = (imageId) => {
+    setRemovedImageIds((current) => current.includes(imageId)
+      ? current.filter((id) => id !== imageId)
+      : [...current, imageId]);
   };
 
   const validate = () => {
@@ -99,6 +141,7 @@ export default function PostsPage() {
     if (form.title.trim().length > 180) next.title = 'Title cannot exceed 180 characters';
     if (form.content.trim().length < 10) next.content = 'Content must be at least 10 characters';
     if (form.content.trim().length > 10000) next.content = 'Content cannot exceed 10,000 characters';
+    if (imageError) next.images = imageError;
     setFormErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -108,14 +151,21 @@ export default function PostsPage() {
     if (!validate()) return;
     setSaving(true);
     try {
+      const payload = {
+        title: form.title.trim(),
+        content: form.content.trim(),
+        images: newImages,
+        removedImageIds: editing ? removedImageIds : [],
+      };
       if (editing) {
-        await postService.update(editing.id, form);
+        await postService.update(editing.id, payload);
         addToast('Post updated');
       } else {
-        await postService.create(form);
+        await postService.create(payload);
         addToast('Post published');
       }
       setModalOpen(false);
+      resetImages();
       setRefreshKey((key) => key + 1);
     } catch (requestError) {
       setFormErrors(getFieldErrors(requestError));
@@ -227,6 +277,18 @@ export default function PostsPage() {
                     <Link to={`/posts/${post.id}`}><h2>{post.title}</h2></Link>
                     <p>{excerpt(post.content, 260)}</p>
                   </div>
+                  {post.images?.length > 0 && (
+                    <div className="post-image-strip">
+                      {post.images.map((image) => (
+                        <PostImage
+                          key={image.id}
+                          image={image}
+                          className="post-image-thumb"
+                          onClick={() => setLightbox(image)}
+                        />
+                      ))}
+                    </div>
+                  )}
                   <div className="post-card-footer">
                     <Link to={`/posts/${post.id}`} className="text-link">
                       Read discussion <ArrowRight size={14} />
@@ -295,6 +357,58 @@ export default function PostsPage() {
               maxLength={10000}
             />
           </FormField>
+          <FormField
+            label="Images (optional)"
+            htmlFor="post-images"
+            error={imageError}
+            hint="Up to 4 images · PNG, JPG, GIF or WebP · 5 MB each"
+          >
+            <label className="image-picker" htmlFor="post-images">
+              <ImagePlus size={18} /> Add images to this post
+            </label>
+            <input
+              key={`${editing?.id || 'new'}-images`}
+              id="post-images"
+              type="file"
+              accept={POST_IMAGE_ACCEPT}
+              multiple
+              onChange={handleImagesChange}
+              className="visually-hidden"
+              disabled={saving}
+            />
+          </FormField>
+          {(previewUrls.length > 0 || editing?.images?.some((image) => !removedImageIds.includes(image.id))) && (
+            <div className="post-image-previews">
+              {editing?.images
+                ?.filter((image) => !removedImageIds.includes(image.id))
+                .map((image) => (
+                  <div className="image-preview-item" key={image.id}>
+                    <PostImage image={image} className="image-preview-img" />
+                    <button
+                      type="button"
+                      className="image-preview-remove"
+                      onClick={() => toggleExistingImage(image.id)}
+                      aria-label={`Remove ${image.originalFilename}`}
+                    >
+                      <X size={13} />
+                    </button>
+                  </div>
+                ))}
+              {previewUrls.map((url, index) => (
+                <div className="image-preview-item" key={url}>
+                  <img src={url} alt={newImages[index].name} className="image-preview-img" />
+                  <button
+                    type="button"
+                    className="image-preview-remove"
+                    onClick={() => setNewImages((current) => current.filter((_, i) => i !== index))}
+                    aria-label={`Remove ${newImages[index].name}`}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="modal-actions">
             <Button variant="secondary" onClick={() => setModalOpen(false)} disabled={saving}>
               Cancel
@@ -304,6 +418,15 @@ export default function PostsPage() {
             </Button>
           </div>
         </form>
+      </Modal>
+
+      <Modal
+        open={Boolean(lightbox)}
+        onClose={() => setLightbox(null)}
+        title={lightbox?.originalFilename || 'Post image'}
+        size="lg"
+      >
+        {lightbox && <PostImage image={lightbox} className="lightbox-image" />}
       </Modal>
 
       <ConfirmDialog

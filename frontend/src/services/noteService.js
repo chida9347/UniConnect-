@@ -1,8 +1,22 @@
 import api from './api';
 
 export const noteService = {
-  async list({ search = '', page = 0, size = 12 } = {}) {
-    const { data } = await api.get('/notes', { params: { search, page, size } });
+  async list({ search = '', folderId = null, page = 0, size = 12 } = {}) {
+    const params = { search, page, size };
+    if (folderId !== null && folderId !== undefined && folderId !== '') params.folderId = folderId;
+    const { data } = await api.get('/notes', { params });
+    return data;
+  },
+  async listFolders() {
+    const { data } = await api.get('/note-folders');
+    return data;
+  },
+  async createFolder(name) {
+    const { data } = await api.post('/note-folders', { name });
+    return data;
+  },
+  async removeFolder(id) {
+    const { data } = await api.delete(`/note-folders/${id}`);
     return data;
   },
   async upload(formData) {

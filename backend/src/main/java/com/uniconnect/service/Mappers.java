@@ -2,8 +2,10 @@ package com.uniconnect.service;
 
 import com.uniconnect.dto.AnswerResponse;
 import com.uniconnect.dto.FacultyResponse;
+import com.uniconnect.dto.NoteFolderResponse;
 import com.uniconnect.dto.NoteResponse;
 import com.uniconnect.dto.OpportunityResponse;
+import com.uniconnect.dto.PostImageResponse;
 import com.uniconnect.dto.PostResponse;
 import com.uniconnect.dto.QuestionResponse;
 import com.uniconnect.dto.UserResponse;
@@ -11,8 +13,10 @@ import com.uniconnect.dto.UserSummaryResponse;
 import com.uniconnect.entity.Answer;
 import com.uniconnect.entity.Faculty;
 import com.uniconnect.entity.Note;
+import com.uniconnect.entity.NoteFolder;
 import com.uniconnect.entity.Opportunity;
 import com.uniconnect.entity.Post;
+import com.uniconnect.entity.PostImage;
 import com.uniconnect.entity.Question;
 import com.uniconnect.entity.User;
 
@@ -46,14 +50,26 @@ public final class Mappers {
         );
     }
 
+    public static PostImageResponse toPostImage(PostImage image) {
+        return new PostImageResponse(
+                image.getId(),
+                "/api/posts/images/" + image.getId(),
+                image.getOriginalFilename(),
+                image.getContentType(),
+                image.getFileSize()
+        );
+    }
+
     public static PostResponse toPost(Post post) {
+        List<PostImageResponse> images = post.getImages().stream().map(Mappers::toPostImage).toList();
         return new PostResponse(
                 post.getId(),
                 post.getTitle(),
                 post.getContent(),
                 toSummary(post.getAuthor()),
                 post.getCreatedAt(),
-                post.getUpdatedAt()
+                post.getUpdatedAt(),
+                images
         );
     }
 
@@ -68,7 +84,19 @@ public final class Mappers {
                 note.getFileSize(),
                 toSummary(note.getUploader()),
                 note.getCreatedAt(),
-                "/api/notes/" + note.getId() + "/download"
+                "/api/notes/" + note.getId() + "/download",
+                note.getFolder() == null ? null : note.getFolder().getId(),
+                note.getFolder() == null ? null : note.getFolder().getName()
+        );
+    }
+
+    public static NoteFolderResponse toNoteFolder(NoteFolder folder, long noteCount) {
+        return new NoteFolderResponse(
+                folder.getId(),
+                folder.getName(),
+                noteCount,
+                toSummary(folder.getCreatedBy()),
+                folder.getCreatedAt()
         );
     }
 

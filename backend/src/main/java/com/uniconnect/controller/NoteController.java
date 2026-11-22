@@ -37,10 +37,11 @@ public class NoteController {
     @GetMapping
     public ResponseEntity<PageResponse<NoteResponse>> list(
             @RequestParam(defaultValue = "") String search,
+            @RequestParam(required = false) Long folderId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return ResponseEntity.ok(noteService.list(search, page, size));
+        return ResponseEntity.ok(noteService.list(search, folderId, page, size));
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

@@ -1,6 +1,7 @@
 package com.uniconnect.dto;
 
 import java.time.Instant;
+import java.util.List;
 
 public record PostResponse(
         Long id,
@@ -8,6 +9,7 @@ public record PostResponse(
         String content,
         UserSummaryResponse author,
         Instant createdAt,
-        Instant updatedAt
+        Instant updatedAt,
+        List<PostImageResponse> images
 ) {
 }

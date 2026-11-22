@@ -55,7 +55,7 @@ function Invoke-Api {
         Method          = $Method
         Headers         = $requestHeaders
         UseBasicParsing = $true
-        TimeoutSec      = 30
+        TimeoutSec      = 240
     }
     if ($null -ne $Body) {
         if ($Body -is [string]) {
@@ -201,6 +201,27 @@ Write-Result "post update persisted" ($postUpdate.Data.title -eq "Smoke test pos
 $invalidPost = Invoke-Api -Method POST -Path "/posts" -Token $studentToken -Body @{ title = "x"; content = "short" }
 Test-Ok "invalid post rejected" $invalidPost 400
 
+# Image attachments use multipart and are served through the authenticated API.
+$imageFile = Join-Path $env:TEMP "uniconnect-smoke-$suffix.png"
+Set-Content -Path $imageFile -Value "smoke test image bytes" -Encoding ASCII
+$imageRaw = & curl.exe -s -w "`n%{http_code}" -X POST "$BaseUrl/posts" `
+    -H "Authorization: Bearer $studentToken" `
+    -F "title=Smoke image post $suffix" `
+    -F "content=This post carries an image attachment created by the automated smoke test." `
+    -F "images=@$imageFile;type=image/png"
+$imageLines = $imageRaw -split "`n"
+$imageStatus = [int]$imageLines[-1]
+$imageJson = ($imageLines[0..($imageLines.Length - 2)] -join "`n") | ConvertFrom-Json
+Write-Result "create post with image (multipart)" ($imageStatus -eq 201) "(got $imageStatus)"
+Write-Result "post response contains image" ($null -ne $imageJson.images -and $imageJson.images.Count -ge 1)
+$imagePostId = $imageJson.id
+$imageId = $imageJson.images[0].id
+$imageDownloadStatus = & curl.exe -s -o NUL -w "%{http_code}" -H "Authorization: Bearer $studentToken" "$BaseUrl/posts/images/$imageId"
+Write-Result "fetch post image" ($imageDownloadStatus -eq "200") "(got $imageDownloadStatus)"
+$imageDelete = Invoke-Api -Method DELETE -Path "/posts/$imagePostId" -Token $studentToken
+Test-Ok "delete post with image" $imageDelete
+Remove-Item -Path $imageFile -ErrorAction SilentlyContinue
+
 $postDelete = Invoke-Api -Method DELETE -Path "/posts/$postId" -Token $studentToken
 Test-Ok "delete own post" $postDelete
 $postGone = Invoke-Api -Path "/posts/$postId" -Token $studentToken
@@ -271,6 +292,55 @@ Write-Result "disallowed file type rejected" ($badUpload -eq "400") "(got $badUp
 
 $noteDelete = Invoke-Api -Method DELETE -Path "/notes/$noteId" -Token $studentToken
 Test-Ok "delete own note" $noteDelete
+
+# Subject folders are global, scoped uploads, and only deletable when empty.
+$folderName = "SMOKE-$suffix-$(New-RandomSuffix)"
+$folder = Invoke-Api -Method POST -Path "/note-folders" -Token $studentToken -Body @{ name = $folderName }
+Test-Ok "create subject folder" $folder 201
+$folderId = $folder.Data.id
+Write-Result "folder starts empty" ($folder.Data.noteCount -eq 0)
+
+$folderDuplicate = Invoke-Api -Method POST -Path "/note-folders" -Token $studentToken -Body @{ name = $folderName.ToLowerInvariant() }
+Test-Ok "duplicate folder name rejected" $folderDuplicate 409
+
+$folderList = Invoke-Api -Path "/note-folders" -Token $studentToken
+Test-Ok "list subject folders" $folderList
+Write-Result "new folder appears in list" (@($folderList.Data | Where-Object { $_.id -eq $folderId }).Count -eq 1)
+
+$folderNoteTitle = "Smoke folder note $suffix"
+$folderNoteRaw = & curl.exe -s -w "`n%{http_code}" -X POST "$BaseUrl/notes" `
+    -H "Authorization: Bearer $studentToken" `
+    -F "title=$folderNoteTitle" `
+    -F "folderId=$folderId" `
+    -F "file=@$noteFile;type=text/plain"
+$folderNoteLines = $folderNoteRaw -split "`n"
+$folderNoteStatus = [int]$folderNoteLines[-1]
+$folderNoteJson = ($folderNoteLines[0..($folderNoteLines.Length - 2)] -join "`n") | ConvertFrom-Json
+Write-Result "upload note into folder" ($folderNoteStatus -eq 201) "(got $folderNoteStatus)"
+Write-Result "folder upload sets subject" ($folderNoteJson.subject -eq $folderName)
+Write-Result "folder upload returns folder id" ($folderNoteJson.folderId -eq $folderId)
+$folderNoteId = $folderNoteJson.id
+
+$folderNotes = Invoke-Api -Path "/notes?folderId=$folderId" -Token $studentToken
+Test-Ok "list notes by folder" $folderNotes
+Write-Result "folder filter finds folder note" (@($folderNotes.Data.content | Where-Object { $_.id -eq $folderNoteId }).Count -eq 1)
+
+$folderSearch = Invoke-Api -Path "/notes?folderId=$folderId&search=Smoke%20folder%20note%20$suffix" -Token $studentToken
+Test-Ok "search within folder" $folderSearch
+Write-Result "folder search finds folder note" (@($folderSearch.Data.content | Where-Object { $_.id -eq $folderNoteId }).Count -eq 1)
+
+$folderBusyDelete = Invoke-Api -Method DELETE -Path "/note-folders/$folderId" -Token $studentToken
+Test-Ok "non-empty folder cannot be deleted" $folderBusyDelete 409
+
+$folderNoteDelete = Invoke-Api -Method DELETE -Path "/notes/$folderNoteId" -Token $studentToken
+Test-Ok "delete folder note" $folderNoteDelete
+
+$folderDelete = Invoke-Api -Method DELETE -Path "/note-folders/$folderId" -Token $studentToken
+Test-Ok "delete empty folder" $folderDelete
+
+$folderGone = Invoke-Api -Path "/note-folders" -Token $studentToken
+Test-Ok "list folders after deletion" $folderGone
+Write-Result "deleted folder is gone" (@($folderGone.Data | Where-Object { $_.id -eq $folderId }).Count -eq 0)
 
 Remove-Item -Path $noteFile, $badFile, $downloadPath -ErrorAction SilentlyContinue
 

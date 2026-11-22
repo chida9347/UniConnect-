@@ -52,6 +52,10 @@ public class Note {
     @JoinColumn(name = "uploader_id", nullable = false, foreignKey = @ForeignKey(name = "fk_notes_uploader"))
     private User uploader;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "folder_id", foreignKey = @ForeignKey(name = "fk_notes_folder"))
+    private NoteFolder folder;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
@@ -130,6 +134,14 @@ public class Note {
 
     public void setUploader(User uploader) {
         this.uploader = uploader;
+    }
+
+    public NoteFolder getFolder() {
+        return folder;
+    }
+
+    public void setFolder(NoteFolder folder) {
+        this.folder = folder;
     }
 
     public Instant getCreatedAt() {

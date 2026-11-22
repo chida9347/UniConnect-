@@ -6,8 +6,10 @@ import com.uniconnect.entity.Role;
 import com.uniconnect.entity.User;
 import com.uniconnect.repository.AnswerRepository;
 import com.uniconnect.repository.FacultyRepository;
+import com.uniconnect.repository.NoteFolderRepository;
 import com.uniconnect.repository.NoteRepository;
 import com.uniconnect.repository.OpportunityRepository;
+import com.uniconnect.repository.PostImageRepository;
 import com.uniconnect.repository.PostRepository;
 import com.uniconnect.repository.QuestionRepository;
 import com.uniconnect.repository.UserRepository;
@@ -42,7 +44,11 @@ public abstract class BaseIntegrationTest {
     @Autowired
     protected PostRepository postRepository;
     @Autowired
+    protected PostImageRepository postImageRepository;
+    @Autowired
     protected NoteRepository noteRepository;
+    @Autowired
+    protected NoteFolderRepository noteFolderRepository;
     @Autowired
     protected QuestionRepository questionRepository;
     @Autowired
@@ -59,6 +65,8 @@ public abstract class BaseIntegrationTest {
         answerRepository.deleteAll();
         questionRepository.deleteAll();
         noteRepository.deleteAll();
+        noteFolderRepository.deleteAll();
+        postImageRepository.deleteAll();
         postRepository.deleteAll();
         opportunityRepository.deleteAll();
         facultyRepository.deleteAll();

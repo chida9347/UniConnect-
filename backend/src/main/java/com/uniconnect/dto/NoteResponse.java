@@ -12,6 +12,8 @@ public record NoteResponse(
         Long fileSize,
         UserSummaryResponse uploader,
         Instant createdAt,
-        String downloadUrl
+        String downloadUrl,
+        Long folderId,
+        String folderName
 ) {
 }

@@ -41,3 +41,13 @@ export const NOTE_ACCEPT =
   '.pdf,.doc,.docx,.ppt,.pptx,.txt,.xls,.xlsx,.png,.jpg,.jpeg';
 
 export const MAX_NOTE_SIZE = 20 * 1024 * 1024;
+
+export const POST_IMAGE_ACCEPT = '.png,.jpg,.jpeg,.gif,.webp';
+
+export const POST_IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'webp'];
+
+export const MAX_POST_IMAGE_SIZE = 5 * 1024 * 1024;
+
+export const MAX_POST_IMAGES = 4;
+
+export const NOTE_FOLDER_SUGGESTIONS = ['DBMS', 'OS', 'CN', 'DSA', 'DL', 'DAA', 'ML', 'PA'];

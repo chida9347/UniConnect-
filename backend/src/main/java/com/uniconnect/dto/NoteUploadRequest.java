@@ -10,12 +10,14 @@ public class NoteUploadRequest {
     @Size(min = 3, max = 200, message = "Title must be between 3 and 200 characters")
     private String title;
 
-    @NotBlank(message = "Subject is required")
+    /** Optional when a folder is selected; the folder name becomes the subject. */
     @Size(max = 120)
     private String subject;
 
     @Size(max = 2000, message = "Description cannot exceed 2,000 characters")
     private String description;
+
+    private Long folderId;
 
     private MultipartFile file;
 
@@ -41,6 +43,14 @@ public class NoteUploadRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public Long getFolderId() {
+        return folderId;
+    }
+
+    public void setFolderId(Long folderId) {
+        this.folderId = folderId;
     }
 
     public MultipartFile getFile() {

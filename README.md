@@ -7,7 +7,7 @@ The application is built as a real client/server system:
 - **Frontend:** React 18 + Vite + React Router + Axios + Lucide React, with a custom responsive design system.
 - **Backend:** Spring Boot 3.4.5, Java 21, Spring Security, JWT, Spring Data JPA, Bean Validation, Flyway.
 - **Database:** MySQL 8 in production; H2 file database for local development and H2 in-memory for tests.
-- **Storage:** local disk by default, optional S3-compatible object storage for uploaded notes.
+- **Storage:** local disk by default, optional S3-compatible object storage for uploaded notes and post images.
 
 > Student registration is restricted to `@klu.ac.in` email addresses. All authorization is enforced by the backend, not just hidden in the UI.
 
@@ -37,8 +37,8 @@ The application is built as a real client/server system:
 | Landing page | Responsive marketing page with feature highlights, platform summary, and calls to action. |
 | Authentication | University-email registration, login, JWT session restore, logout, protected routes. |
 | Dashboard | Personal stats and recent activity for posts, notes, questions, and answers. |
-| Student posts | Create, list, search, sort, open, edit, and delete posts. Authors can manage their own posts; admins can moderate. |
-| Study notes | Upload files with title, subject, and description; search notes; download files; delete own uploads; admin moderation. |
+| Student posts | Create, list, search, sort, open, edit, and delete posts. Attach up to four images (PNG/JPG/GIF/WebP, 5 MB each), view galleries and a lightbox, and remove images while editing. Authors can manage their own posts; admins can moderate. |
+| Study notes | Create global subject folders (DBMS, OS, CN, DSA, DL, DAA, ML, PA suggested), upload files into a folder, filter/search by folder, download files, delete own uploads, and delete only empty folders they created. Admins can moderate notes. |
 | Q&A | Ask questions, search, open a detail thread, post answers, delete own answers or question. |
 | Faculty directory | Public-to-signed-in directory with search, department filter, and department list. Admins manage records. |
 | Opportunities | Internship/workshop/competition/hackathon/event listings with category filter, upcoming-only filter, search, and admin CRUD. |
@@ -176,8 +176,8 @@ $env:ADMIN_PASSWORD="ChooseAStrong@Password123"
 mvn spring-boot:run
 ```
 
-Flyway applies `V1__create_schema.sql` on first start and Hibernate `validate` confirms the
-schema matches the entities. Do **not** pass `-Dspring-boot.run.profiles=dev` in this case:
+Flyway applies `V1__create_schema.sql` and `V2__post_images_and_note_folders.sql` on first start
+and Hibernate `validate` confirms the schema matches the entities. Do **not** pass `-Dspring-boot.run.profiles=dev` in this case:
 the `dev` profile overrides the datasource with H2 and disables Flyway.
 
 The same variables work for the deployed backend, but a public server cannot reach a MySQL
@@ -274,7 +274,7 @@ Production uses Flyway:
 
 - `spring.jpa.hibernate.ddl-auto=validate`
 - `spring.flyway.enabled=true`
-- Migration: `backend/src/main/resources/db/migration/V1__create_schema.sql`
+- Migrations: `backend/src/main/resources/db/migration/V1__create_schema.sql` and `V2__post_images_and_note_folders.sql` (post images, note folders, and `notes.folder_id`).
 
 Create a MySQL database and user:
 
@@ -297,16 +297,27 @@ For local development, the `dev` profile disables Flyway and lets Hibernate upda
 
 Uploads are validated in the backend before storage:
 
+**Study notes**
+
 - Maximum size: **20 MB** (request limit 25 MB).
 - Allowed extensions: `pdf`, `doc`, `docx`, `ppt`, `pptx`, `xls`, `xlsx`, `txt`, `png`, `jpg`, `jpeg`.
 - Filenames are sanitized; files are stored under UUID-based keys.
 - Downloads require authentication and preserve the original filename.
+- Uploading into a subject folder sets the note's `subject` to the folder name, keeping existing subject search compatible.
+
+**Post images**
+
+- Maximum **4 images per post**, **5 MB per image**.
+- Allowed extensions: `png`, `jpg`, `jpeg`, `gif`, `webp`.
+- Images are stored through the same storage abstraction as notes and fetched through authenticated
+  `GET /api/posts/images/{imageId}` requests as blobs; direct static URLs are never exposed.
+- Edits validate the final image count, so a post cannot exceed four images after repeated updates.
 
 ### Local storage
 
 Default. Files are stored under `UPLOAD_DIR` (for example `backend/uploads` in dev).
 
-> On Render/Railway/other ephemeral hosts, attach a persistent disk and point `UPLOAD_DIR` at it, or switch to S3.
+> On Render/Railway/other ephemeral hosts, attach a persistent disk and point `UPLOAD_DIR` at it, or switch to S3. This applies to both study notes and post images.
 
 ### S3-compatible storage
 
@@ -343,9 +354,11 @@ Base URL: `/api`. All endpoints except auth and health require `Authorization: B
 | `GET` | `/dashboard` | Authenticated | User stats and recent activity. |
 | `GET` | `/posts?search=&page=&size=&sort=` | Authenticated | Paginated posts (`sort=newest\|oldest`). |
 | `GET` | `/posts/{id}` | Authenticated | Post detail. |
-| `POST` | `/posts` | Authenticated | Create a post. |
-| `PUT` | `/posts/{id}` | Author/Admin | Update a post. |
-| `DELETE` | `/posts/{id}` | Author/Admin | Delete a post. |
+| `POST` | `/posts` | Authenticated | Create a post as JSON, or as multipart with `images` (max 4). |
+| `PUT` | `/posts/{id}` | Author/Admin | Update a post as JSON, or multipart with `images` and `removedImageIds`. |
+| `DELETE` | `/posts/{id}` | Author/Admin | Delete a post and its images. |
+| `GET` | `/posts/images/{imageId}` | Authenticated | Fetch a post image as an inline blob. |
+| `DELETE` | `/posts/{postId}/images/{imageId}` | Author/Admin | Remove one image from a post. |
 | `GET` | `/questions?search=&page=&size=` | Authenticated | Paginated questions. |
 | `GET` | `/questions/{id}` | Authenticated | Question and answers. |
 | `POST` | `/questions` | Authenticated | Ask a question. |
@@ -357,10 +370,13 @@ Base URL: `/api`. All endpoints except auth and health require `Authorization: B
 
 | Method | Path | Access | Description |
 | --- | --- | --- | --- |
-| `GET` | `/notes?search=&page=&size=` | Authenticated | Paginated notes. |
-| `POST` | `/notes` | Authenticated | Multipart upload (`title`, `subject`, `description`, `file`). |
+| `GET` | `/notes?search=&folderId=&page=&size=` | Authenticated | Paginated notes; `folderId` filters by subject folder. |
+| `POST` | `/notes` | Authenticated | Multipart upload (`title`, `subject`, `description`, `file`, optional `folderId`). |
 | `GET` | `/notes/{id}/download` | Authenticated | Download a note. |
 | `DELETE` | `/notes/{id}` | Uploader/Admin | Delete a note and its stored file. |
+| `GET` | `/note-folders` | Authenticated | List subject folders with note counts. |
+| `POST` | `/note-folders` | Authenticated | Create a globally unique folder (`name`). |
+| `DELETE` | `/note-folders/{id}` | Creator/Admin | Delete a folder; only allowed when it is empty (`409` otherwise). |
 | `GET` | `/faculty?search=&department=&page=&size=` | Authenticated | Faculty directory. |
 | `GET` | `/faculty/departments` | Authenticated | Distinct departments. |
 | `POST` | `/faculty` | Admin | Create a faculty record. |
@@ -411,7 +427,7 @@ cd uniconnect/backend
 mvn test
 ```
 
-Current result: **13 tests, 0 failures, 0 errors** across `AuthIntegrationTest` (7) and `ContentIntegrationTest` (6).
+Current result: **15 tests, 0 failures, 0 errors** across `AuthIntegrationTest` (7), `ContentIntegrationTest` (6), and `ContentMediaIntegrationTest` (2) covering post images and note folders.
 
 ### API smoke test
 
@@ -422,7 +438,7 @@ cd uniconnect
 powershell -ExecutionPolicy Bypass -File scripts/smoke-test.ps1
 ```
 
-The script verifies 62 checks: health, login/registration validation, JWT rejection, dashboard, full post CRUD, questions/answers, multipart note upload/download, disallowed file types, faculty/opportunity admin-only CRUD, profile protection, admin user listing, moderation deletion, and 401/403/404 handling.
+The script verifies 83 checks: health, login/registration validation, JWT rejection, dashboard, full post CRUD, multipart post images, questions/answers, multipart note upload/download, subject folder create/list/filter/search/delete, disallowed file types, faculty/opportunity admin-only CRUD, profile protection, admin user listing, moderation deletion, and 401/403/404 handling.
 
 Override the target or admin credentials with parameters or environment variables:
 
@@ -440,11 +456,13 @@ cd uniconnect/frontend
 npm run build
 ```
 
-Current result: successful production build (1,681 modules; approximately 63 kB CSS and 345 kB JS before gzip).
+Current result: successful production build (1,683 modules; approximately 68 kB CSS and 359 kB JS before gzip).
 
 ### Manual verification completed
 
 - Landing, login, registration, dashboard, posts, notes, questions, faculty, opportunities, profile, admin users.
+- Post image upload, gallery rendering through authenticated blob fetches, and image removal during edit.
+- Subject folder creation, folder-scoped note upload, folder filtering, in-folder search, and empty-folder deletion.
 - Note upload and download through the real UI and API.
 - Student restrictions: no admin navigation, admin route redirects, no admin-only controls.
 - Author-only edit/delete controls.
@@ -464,9 +482,9 @@ The public instance runs entirely on free plans:
 | Backend | Render (free, Docker) | https://uniconnect-platform-api.onrender.com — root `backend`, health check `/actuator/health` |
 | Database | TiDB Cloud Starter (free) | MySQL 8.0-compatible, TLS on port `4000`, schema created by Flyway on first boot |
 
-Verified against the live stack: Flyway migration, admin bootstrap and login, dashboard,
+Verified against the live stack: Flyway migrations V1 and V2, admin bootstrap and login, dashboard,
 admin user directory, CORS preflight with the Vercel origin, and the full API smoke test
-(`62 passed, 0 failed`).
+(`83 passed, 0 failed`).
 
 Free-tier limits to expect:
 
@@ -476,7 +494,7 @@ Free-tier limits to expect:
   on load. C1-only JIT and the serial GC in `backend/Dockerfile` reduced a measured cold boot to
   **89 s**, and the frontend allows 240 s with a visible "backend is waking up" hint. If the
   first sign-in is slow, keep the tab open.
-- The Render filesystem is ephemeral, so uploaded study notes are lost on redeploy or restart.
+- The Render filesystem is ephemeral, so uploaded study notes and post images are lost on redeploy or restart.
   Set `STORAGE_TYPE=s3` and the `S3_*` variables to keep uploads (any S3-compatible store).
 - Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`,
   `-XX:TieredStopAtLevel=1` and `-XX:+UseSerialGC`.
@@ -530,7 +548,7 @@ Set `CORS_ALLOWED_ORIGINS` and `FRONTEND_URL` to the public frontend origin.
 - [ ] `CORS_ALLOWED_ORIGINS` contains only real frontend origins.
 - [ ] Flyway migration applied successfully.
 - [ ] Admin account created with a strong password.
-- [ ] Persistent storage configured for notes.
+- [ ] Persistent storage configured for notes and post images.
 - [ ] HTTPS enabled on both frontend and backend.
 - [ ] Health checks and logs verified.
 
@@ -544,6 +562,7 @@ Set `CORS_ALLOWED_ORIGINS` and `FRONTEND_URL` to the public frontend origin.
 - Ownership checks are enforced in services, not only in the UI.
 - Admin endpoints require both URL and method authorization.
 - Uploads validate extension, size, and sanitized filename. Stored filenames are server-generated.
+- Post images and notes are served only through authenticated download endpoints; storage keys never appear in client-visible URLs.
 - Error responses do not expose stack traces or internal messages.
 - CORS allows only explicitly configured origins.
 - Profile updates cannot change email, university ID, or role.
@@ -562,6 +581,8 @@ If you add password reset, email verification, or refresh tokens, extend the bac
 | `401` immediately after login | Backend restarted with a different `JWT_SECRET` | Log in again, or keep the secret stable. |
 | Admin account not created | Missing email/password, or account already exists | Set both admin variables before first start; use a different email or update the DB manually. |
 | Note upload rejected | File type or size not allowed | Use a supported extension and keep the file at or below 20 MB. |
+| Post image rejected | Wrong type, file over 5 MB, or more than four images | Use PNG/JPG/GIF/WebP, keep each file at or below 5 MB, and attach at most four. |
+| Folder deletion returns 409 | Folder still contains notes | Delete or move its notes first; only empty folders can be deleted. |
 | Uploads disappear after redeploy | Ephemeral filesystem | Attach a persistent disk or configure S3. |
 | Flyway validation fails | Entities and migration out of sync | Add a new versioned migration; never edit an applied migration in production. |
 | Cannot connect to MySQL | Wrong host/port/credentials or SSL settings | Verify `DB_*` values and network access; set `DB_USE_SSL` appropriately. |
