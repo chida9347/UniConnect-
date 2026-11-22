@@ -218,8 +218,8 @@ Artifacts used:
 - `README.md` — setup, API, security, deployment, and troubleshooting.
 
 **Free-tier caveats:** Render sleeps after 15 minutes idle. A measured cold boot was 171 s;
-C1-only JIT and the serial GC reduced it to 89 s, a 10-minute GitHub Actions ping keeps the
-instance warm, and the frontend allows 240 s with a wake-up hint. The Render filesystem is
+C1-only JIT and the serial GC reduced it to 89 s, GitHub Actions pings plus a health request on
+login-page load keep the instance warm, and the frontend allows 240 s with a wake-up hint. The Render filesystem is
 ephemeral (uploads disappear on restart unless `STORAGE_TYPE=s3` is configured), and the
 instance has 512 MB RAM / 0.1 CPU.
 

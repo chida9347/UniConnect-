@@ -472,9 +472,10 @@ Free-tier limits to expect:
 
 - Render suspends the backend after 15 minutes idle. A cold Spring Boot start was measured at
   **171 s**, so `.github/workflows/keep-alive.yml` pings `/actuator/health` every 10 minutes via
-  GitHub Actions (free, no secrets) to keep the instance warm. C1-only JIT and the serial GC in
-  `backend/Dockerfile` reduced a measured cold boot to **89 s**, and the frontend allows 240 s
-  with a visible "backend is waking up" hint. If the first sign-in is slow, keep the tab open.
+  GitHub Actions (free, no secrets) to keep the instance warm; the login page also pings health
+  on load. C1-only JIT and the serial GC in `backend/Dockerfile` reduced a measured cold boot to
+  **89 s**, and the frontend allows 240 s with a visible "backend is waking up" hint. If the
+  first sign-in is slow, keep the tab open.
 - The Render filesystem is ephemeral, so uploaded study notes are lost on redeploy or restart.
   Set `STORAGE_TYPE=s3` and the `S3_*` variables to keep uploads (any S3-compatible store).
 - Render free provides 512 MB RAM / 0.1 CPU; the JVM runs with `-XX:MaxRAMPercentage=75`,
